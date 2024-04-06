@@ -9,6 +9,13 @@ jobs:
     steps:
       - name: Get code
         uses: actions/checkout@v3
+      # Action qui met en cache nos dépendance avec une clé qui est le hash de package-lock.json
+      # s'il ne change pas, alors il sera repris pour les futurs workflows et par les autres jobs, ce qui accélère l'installation des dépendances
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
       - name: Install dependencies
         run: npm ci
       - name: Lint code
@@ -18,18 +25,26 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    # déclaration des ouputs (message de console, log, avertissement ...), qui sont réutilisable dans d'autres jobs
     outputs:
       script-file: ${{ steps.publish.outputs.script-file }}
     steps:
       - name: Get code
         uses: actions/checkout@v3
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
       - name: Install dependencies
         run: npm ci
       - name: Build website
         run: npm run build
+      # récupération du nom du fichier JS du build pour l'inscrire dans un fichier afin qu'il soit récupérer ensuite
       - name: Published JS filename
         id: publish
         run: find dist/assets/*.js -type f -execdir echo 'script-file={}' >>  $GITHUB_OUTPUT ';'
+      # déclaration de l'artifact (un fichier ou groupe de fichier) qui peut-être téléchargé depuis GitHub ou récupéré depuis un autre job
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
